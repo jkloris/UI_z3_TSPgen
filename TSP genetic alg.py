@@ -1,7 +1,8 @@
 import random
 import math
+from tkinter import *
 MAP_SIZE = [200, 200]
-CITIES = 20
+CITIES = 30
 
 class Route:
     def __init__(self, vector):
@@ -22,7 +23,11 @@ class Route:
         return fitness
 
     def mutate(self):
-        pass
+        r = random.randint(0,len(self.vector)-2)
+        tmp = self.vector[r]
+        self.vector[r] = self.vector[r+1]
+        self.vector[r+1] = tmp
+
 
 
 class Map:
@@ -50,17 +55,7 @@ def calcDistance(city1, city2):
     x = math.floor(math.sqrt((city1[0] - city2[0] )**2 + (city1[1] - city2[1])**2))
     return x
 
-# def calcFitness(map, route):
-#     fitness = 0
-#     for i in range(len(route)-1):
-#         if map.dist[route[i]][route[i+1]] == None:
-#             map.dist[route[i]][route[i + 1]] = calcDistance(map.cities[route[i]], map.cities[route[i+1]])
-#         fitness += map.dist[route[i]][route[i + 1]]
-#     if map.dist[route[0]][route[i + 1]] == None:
-#         map.dist[route[0]][route[i + 1]] = calcDistance(map.cities[route[0]], map.cities[route[i + 1]])
-#     fitness += map.dist[route[0]][route[i+1]]
-#
-#     return fitness
+
 
 def generatePermutations(num, citiesN, map):
     routes = []
@@ -78,13 +73,29 @@ def generatePermutations(num, citiesN, map):
 
 def createNewGeneration(map, routes):
     routes.sort(key=lambda x: x.fitness)
-    print(routes[0].fitness)
+    newGeneration = []
+    for i in range(int(len(routes)/2)):
+        kid = breed(routes[i],routes[i+1])
+        if i == 3:
+            kid.mutate()
+        kid.calcFitness(map)
+        newGeneration.append(kid)
+        kid = breed(routes[i+1], routes[i])
+        if i == 6:
+            kid.mutate()
+        kid.calcFitness(map)
+        newGeneration.append(kid)
+
+    return newGeneration
+
+def createNewGeneration2(map, routes):
+    routes.sort(key=lambda x: x.fitness)
     newGeneration = []
     for i in range(int(len(routes)/2)):
         kid = breed(routes[i],routes[i+1])
         kid.calcFitness(map)
         newGeneration.append(kid)
-        kid = breed(routes[i+1], routes[i])
+        kid = breed(routes[i], routes[len(routes) - i-1])
         kid.calcFitness(map)
         newGeneration.append(kid)
 
@@ -110,14 +121,39 @@ def breed(mum, dad):
 
     return Route(gene)
 
-
+def drawMap(map, best,canvas):
+    a=2
+    b = 300
+    for i in best.vector:
+        canvas.create_oval(b+a*map.cities[i][0],b+a*map.cities[i][1],b+a*map.cities[i][0]+4,b+a*map.cities[i][1]+4,fill="red")
+        if best.vector[i] != best.vector[-1]:
+            canvas.create_line(b+a*map.cities[i][0],b+a*map.cities[i][1],b+a*map.cities[i+1][0],b+a*map.cities[i+1][1])
+            canvas.create_text(b+a*map.cities[i][0],b+a*map.cities[i][1],text=best.vector[i])
+        else:
+            canvas.create_line(b+a*map.cities[i][0], b+a*map.cities[i][1], b+a*map.cities[0][0], b+a*map.cities[0][1])
 def main():
+    root = Tk()
+    root.geometry("2000x800")
+    canvas = Canvas(root, width = 1900, height = MAP_SIZE[1]*4)
+    canvas.pack()
+    y = 0
     map = Map(MAP_SIZE[0], MAP_SIZE[1], CITIES)
 
-    routes = generatePermutations(20, CITIES, map)
+    routes = generatePermutations(80, CITIES, map)
+    best = routes[0]
+    for i in range(1900):
+        x = min(routes, key=lambda a: a.fitness)
+        canvas.create_oval(y,x.fitness/4,y+2,x.fitness/4+2)
+        y+=1
 
-    for i in range(100):
+        if best.fitness > x.fitness:
+            best=x
+
         routes = createNewGeneration(map, routes)
+
+    drawMap(map,best,canvas)
+
+    root.mainloop()
 
 if __name__ == '__main__':
     main()
