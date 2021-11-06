@@ -1,8 +1,13 @@
 import random
 import math
+import sys
 from tkinter import *
 MAP_SIZE = [200, 200]
-CITIES = 30
+CITIES = 20
+EK_RATE = 1
+BP_RATE = 1
+NG_RATE = 1
+E3_RATE = 1
 
 class Route:
     def __init__(self, vector):
@@ -22,11 +27,13 @@ class Route:
         self.fitness = fitness
         return fitness
 
-    def mutate(self):
+    def mutate(self,map):
         r = random.randint(0,len(self.vector)-2)
         tmp = self.vector[r]
         self.vector[r] = self.vector[r+1]
         self.vector[r+1] = tmp
+        self.calcFitness(map)
+
 
 
 
@@ -51,6 +58,10 @@ class Map:
 
             self.cities.append([x,y])
 
+    def createTestCities(self): #!20 miest!
+        self.cities = [[79, 177], [12, 108], [95, 25],[28, 52], [153, 113],[30, 31], [44, 110], [186, 13], [47, 63], [182, 50], [72, 136],[53, 126], [43, 96], [123, 65],[117, 97],
+                      [43, 107],[166, 1], [178, 69],[6, 41], [ 16, 173]]
+
 def calcDistance(city1, city2):
     x = math.floor(math.sqrt((city1[0] - city2[0] )**2 + (city1[1] - city2[1])**2))
     return x
@@ -74,32 +85,113 @@ def generatePermutations(num, citiesN, map):
 def createNewGeneration(map, routes):
     routes.sort(key=lambda x: x.fitness)
     newGeneration = []
-    for i in range(int(len(routes)/2)):
+    elitekidsRate = EK_RATE / 10
+    badParentsRate = BP_RATE / 10
+    newGenesRate = NG_RATE
+
+    for i in range(int(len(routes)/ elitekidsRate)):
         kid = breed(routes[i],routes[i+1])
-        if i == 3:
-            kid.mutate()
         kid.calcFitness(map)
         newGeneration.append(kid)
         kid = breed(routes[i+1], routes[i])
-        if i == 6:
-            kid.mutate()
         kid.calcFitness(map)
         newGeneration.append(kid)
 
-    return newGeneration
+    for i in range(len(routes), int(len(routes)/ badParentsRate), -1):
+        routes[i-1].mutate(map)
+        # routes[i-1].calcFitness(map)
+        newGeneration.append(routes[i-1])
+
+    newGeneration = newGeneration + generatePermutations(int(len(routes)/ newGenesRate), len(map.cities), map)
+    newGeneration.sort(key=lambda x: x.fitness)
+    return newGeneration[:len(routes)]
 
 def createNewGeneration2(map, routes):
     routes.sort(key=lambda x: x.fitness)
     newGeneration = []
     for i in range(int(len(routes)/2)):
-        kid = breed(routes[i],routes[i+1])
+        kid = breed(routes[i], routes[i + 1])
         kid.calcFitness(map)
         newGeneration.append(kid)
-        kid = breed(routes[i], routes[len(routes) - i-1])
+        kid = breed(routes[i + 1], routes[i])
         kid.calcFitness(map)
         newGeneration.append(kid)
 
     return newGeneration
+
+
+def createNewGeneration3(map, routes):
+
+
+    routes.sort(key=lambda x: x.fitness)
+    newGeneration = []
+    size = len(routes)
+    elite = routes[:int(len(routes)/E3_RATE)]
+    routes = routes[int(len(routes)/E3_RATE):]
+
+    S = 0
+    for i in range(int(len(routes))):
+        S+=routes[i].fitness
+
+    for k in range(int(len(routes)/2-1)):
+        r = random.randint(0, S)
+
+        s = 0
+        for i in range(int(len(routes))):
+            s += routes[i].fitness
+            if s >= r:
+                S-=routes[i].fitness
+                routes.pop(i)
+                break
+    routes = elite+routes
+    for i in range(len(routes)-1):
+        kid = breed(routes[i], routes[i + 1])
+        kid.calcFitness(map)
+        newGeneration.append(kid)
+        kid = breed(routes[i + 1], routes[i])
+        kid.calcFitness(map)
+        newGeneration.append(kid)
+
+    newGeneration.sort(key=lambda x: x.fitness)
+
+    return newGeneration[:size]
+
+def createNewGeneration4(map, routes):
+
+
+    routes.sort(key=lambda x: x.fitness)
+    newGeneration = []
+    size = len(routes)
+    elite = routes[:int(len(routes)/E3_RATE)]
+    routes = routes[int(len(routes)/E3_RATE):]
+
+    S = 0
+    for i in range(int(len(routes))):
+        S+=routes[i].fitness
+
+    for k in range(int(len(routes)/2-1)):
+        r = random.randint(0, S)
+
+        s = 0
+        for i in range(int(len(routes))):
+            s += routes[i].fitness
+            if s >= r:
+                S-=routes[i].fitness
+                routes.pop(i)
+                break
+    routes = elite+routes
+    for i in range(len(routes)-1):
+        kid = breed(routes[i], routes[i + 1])
+        kid.calcFitness(map)
+        newGeneration.append(kid)
+        kid = breed(routes[i + 1], routes[i])
+        kid.calcFitness(map)
+        newGeneration.append(kid)
+
+    newGeneration += elite
+    newGeneration.sort(key=lambda x: x.fitness)
+
+    return newGeneration[:size]
 
 def breed(mum, dad):
     r1 = random.randint(0,len(mum.vector)-1)
@@ -132,28 +224,47 @@ def drawMap(map, best,canvas):
         else:
             canvas.create_line(b+a*map.cities[i][0], b+a*map.cities[i][1], b+a*map.cities[0][0], b+a*map.cities[0][1])
 def main():
-    root = Tk()
-    root.geometry("2000x800")
-    canvas = Canvas(root, width = 1900, height = MAP_SIZE[1]*4)
-    canvas.pack()
+    # root = Tk()
+    # root.geometry("1500x700")
+    # canvas = Canvas(root, width = 1900, height = MAP_SIZE[1]*4)
+    # canvas.pack()
     y = 0
     map = Map(MAP_SIZE[0], MAP_SIZE[1], CITIES)
+    map.createTestCities()
 
-    routes = generatePermutations(80, CITIES, map)
+    routes = generatePermutations(50, CITIES, map)
     best = routes[0]
-    for i in range(1900):
+
+    remainCounter = 400
+    while remainCounter > 0:
+
         x = min(routes, key=lambda a: a.fitness)
-        canvas.create_oval(y,x.fitness/4,y+2,x.fitness/4+2)
+        # x=0
+        # for a in routes:
+        #     x+=a.fitness
+        # x = int(x/len(routes))
+        # canvas.create_oval(y,x.fitness/4,y+2,x.fitness/4+2)
         y+=1
 
+        remainCounter-=1
         if best.fitness > x.fitness:
             best=x
+            remainCounter = 400
 
-        routes = createNewGeneration(map, routes)
+        routes = createNewGeneration4(map, routes)
 
-    drawMap(map,best,canvas)
+    # drawMap(map,best,canvas)
+    print(best.fitness)
 
-    root.mainloop()
+    # root.mainloop()
+
 
 if __name__ == '__main__':
+    # EK_RATE = int(sys.argv[1])
+    # BP_RATE = int(sys.argv[2])
+    # NG_RATE = int(sys.argv[3])
+    EK_RATE = 2
+    BP_RATE = 2.3
+    NG_RATE = 7
+    E3_RATE = int(sys.argv[1])
     main()
