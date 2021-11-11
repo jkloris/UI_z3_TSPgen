@@ -7,7 +7,7 @@ CITIES = 20
 EK_RATE = 1
 BP_RATE = 1
 NG_RATE = 1
-E3_RATE = 1
+# E3_RATE = 1
 
 class Route:
     def __init__(self, vector):
@@ -82,6 +82,7 @@ def generatePermutations(num, citiesN, map):
 
     return routes
 
+#metoda vyberu generacii - kombinovana
 def createNewGeneration(map, routes):
     routes.sort(key=lambda x: x.fitness)
     newGeneration = []
@@ -90,10 +91,10 @@ def createNewGeneration(map, routes):
     newGenesRate = NG_RATE
 
     for i in range(int(len(routes)/ elitekidsRate)):
-        kid = breed(routes[i],routes[i+1])
+        kid = breed2BKv2(routes[i],routes[i+1])
         kid.calcFitness(map)
         newGeneration.append(kid)
-        kid = breed(routes[i+1], routes[i])
+        kid = breed2BKv2(routes[i+1], routes[i])
         kid.calcFitness(map)
         newGeneration.append(kid)
 
@@ -106,22 +107,22 @@ def createNewGeneration(map, routes):
     newGeneration.sort(key=lambda x: x.fitness)
     return newGeneration[:len(routes)]
 
+#metoda vyberu generacii len z elitnych
 def createNewGeneration2(map, routes):
     routes.sort(key=lambda x: x.fitness)
     newGeneration = []
     for i in range(int(len(routes)/2)):
-        kid = breed(routes[i], routes[i + 1])
+        kid = breed2BKv2(routes[i], routes[i + 1])
         kid.calcFitness(map)
         newGeneration.append(kid)
-        kid = breed(routes[i + 1], routes[i])
+        kid = breed2BKv2(routes[i + 1], routes[i])
         kid.calcFitness(map)
         newGeneration.append(kid)
 
     return newGeneration
 
-
+# metoda vyberu generacii - ruleta, kde elitni preziju vyradovanie
 def createNewGeneration3(map, routes):
-
 
     routes.sort(key=lambda x: x.fitness)
     newGeneration = []
@@ -145,10 +146,10 @@ def createNewGeneration3(map, routes):
                 break
     routes = elite+routes
     for i in range(len(routes)-1):
-        kid = breed(routes[i], routes[i + 1])
+        kid = breed2BKv2(routes[i], routes[i + 1])
         kid.calcFitness(map)
         newGeneration.append(kid)
-        kid = breed(routes[i + 1], routes[i])
+        kid = breed2BKv2(routes[i + 1], routes[i])
         kid.calcFitness(map)
         newGeneration.append(kid)
 
@@ -156,8 +157,8 @@ def createNewGeneration3(map, routes):
 
     return newGeneration[:size]
 
-def createNewGeneration4(map, routes):
-
+# metoda vyberu generacii - ruleta, kde elitni idu do dalsej generacie
+def createNewGeneration4(map, routes, E3_RATE):
 
     routes.sort(key=lambda x: x.fitness)
     newGeneration = []
@@ -181,10 +182,12 @@ def createNewGeneration4(map, routes):
                 break
     routes = elite+routes
     for i in range(len(routes)-1):
-        kid = breed(routes[i], routes[i + 1])
+        kid = breed2BK(routes[i], routes[i + 1])
         kid.calcFitness(map)
         newGeneration.append(kid)
-        kid = breed(routes[i + 1], routes[i])
+        kid = breed2BK(routes[i + 1], routes[i])
+        if i % (size-2*E3_RATE if size > 2*E3_RATE else 1) == 0:
+            kid.mutate(map)
         kid.calcFitness(map)
         newGeneration.append(kid)
 
@@ -193,70 +196,97 @@ def createNewGeneration4(map, routes):
 
     return newGeneration[:size]
 
-def breed(mum, dad):
+def breed2BK(mum, dad):
     r1 = random.randint(0,len(mum.vector)-1)
     r2 = random.randint(0,len(mum.vector)-1)
     i1 = mum.vector.index(r1)
     i2 = mum.vector.index(r2)
     if i1 < i2:
-        gene = mum.vector[i1:i2]
+        kid = mum.vector[i1:i2]
         pos = i2
 
     else:
-        gene = mum.vector[i2:i1]
+        kid = mum.vector[i2:i1]
         pos = i1
 
-    for d in range(len(dad.vector) - len(gene)):
-        while dad.vector[pos] in gene:
+    for d in range(len(dad.vector) - len(kid)):
+        while dad.vector[pos] in kid:
             pos = pos + 1 if pos + 1 < len(dad.vector) else 0
-        gene.append(dad.vector[pos])
+        kid.append(dad.vector[pos])
 
-    return Route(gene)
+    return Route(kid)
+
+def breed2BKv2(mum, dad):
+    r1 = random.randint(0, len(mum.vector) - 1)
+    r2 = random.randint(0, len(mum.vector) - 1)
+    i1 = mum.vector.index(r1)
+    i2 = mum.vector.index(r2)
+    if i1 < i2:
+        kid = mum.vector[i1:i2]
+    else:
+        kid = mum.vector[i2:i1]
+        
+    pos = 0
+    for d in range(len(dad.vector) - len(kid)):
+        while dad.vector[pos] in kid:
+            pos = pos + 1 if pos + 1 < len(dad.vector) else 0
+        kid.append(dad.vector[pos])
+
+    return Route(kid)
+
 
 def drawMap(map, best,canvas):
     a=2
     b = 300
     for i in best.vector:
         canvas.create_oval(b+a*map.cities[i][0],b+a*map.cities[i][1],b+a*map.cities[i][0]+4,b+a*map.cities[i][1]+4,fill="red")
-        if best.vector[i] != best.vector[-1]:
-            canvas.create_line(b+a*map.cities[i][0],b+a*map.cities[i][1],b+a*map.cities[i+1][0],b+a*map.cities[i+1][1])
-            canvas.create_text(b+a*map.cities[i][0],b+a*map.cities[i][1],text=best.vector[i])
+        if best.vector.index(i) < len(best.vector)-1:
+            next = best.vector[best.vector.index(i)+1]
+            canvas.create_line(b+a*map.cities[i][0],b+a*map.cities[i][1],b+a*map.cities[next][0],b+a*map.cities[next][1])
+            canvas.create_text(b+a*map.cities[i][0],b+a*map.cities[i][1], font=("Purisa", 12), text=best.vector[i])
         else:
-            canvas.create_line(b+a*map.cities[i][0], b+a*map.cities[i][1], b+a*map.cities[0][0], b+a*map.cities[0][1])
-def main():
-    # root = Tk()
-    # root.geometry("1500x700")
-    # canvas = Canvas(root, width = 1900, height = MAP_SIZE[1]*4)
-    # canvas.pack()
+            canvas.create_line(b+a*map.cities[i][0], b+a*map.cities[i][1], b+a*map.cities[best.vector[0]][0], b+a*map.cities[best.vector[0]][1])
+
+
+def main(E3_RATE):
+    root = Tk()
+    root.geometry("1500x700")
+    canvas = Canvas(root, width = 1900, height = MAP_SIZE[1]*4)
+    canvas.pack()
     y = 0
     map = Map(MAP_SIZE[0], MAP_SIZE[1], CITIES)
     map.createTestCities()
 
     routes = generatePermutations(50, CITIES, map)
+
     best = routes[0]
 
     remainCounter = 400
+    generationCounter = 0
     while remainCounter > 0:
-
+        generationCounter+=1
         x = min(routes, key=lambda a: a.fitness)
-        # x=0
         # for a in routes:
         #     x+=a.fitness
         # x = int(x/len(routes))
-        # canvas.create_oval(y,x.fitness/4,y+2,x.fitness/4+2)
+        canvas.create_oval(y,x.fitness/4,y+2,x.fitness/4+2)
         y+=1
+
+        if generationCounter % 100 == 0:
+            E3_RATE+=1
 
         remainCounter-=1
         if best.fitness > x.fitness:
             best=x
-            remainCounter = 400
+            remainCounter = 500
 
-        routes = createNewGeneration4(map, routes)
+        routes = createNewGeneration4(map, routes, E3_RATE)
+        # routes = createNewGeneration(map, routes)
 
-    # drawMap(map,best,canvas)
-    print(best.fitness)
-
-    # root.mainloop()
+    drawMap(map,best,canvas)
+    print(best.fitness, best.vector)
+    print(E3_RATE)
+    root.mainloop()
 
 
 if __name__ == '__main__':
@@ -266,5 +296,5 @@ if __name__ == '__main__':
     EK_RATE = 2
     BP_RATE = 2.3
     NG_RATE = 7
-    E3_RATE = int(sys.argv[1])
-    main()
+    E3_RATE = 7
+    main(E3_RATE)
