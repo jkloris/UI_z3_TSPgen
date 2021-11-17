@@ -3,17 +3,15 @@ import math
 import sys
 from tkinter import *
 MAP_SIZE = [200, 200]
-CITIES = 20
-EK_RATE = 1
-BP_RATE = 1
-NG_RATE = 1
-# E3_RATE = 1
 
+
+# trieda na ulozenie genetickej informacie a fitness jedinca
 class Route:
     def __init__(self, vector):
         self.vector = vector
         self.fitness = None
 
+    # vypocet fitness
     def calcFitness(self, map):
         fitness = 0
         for i in range(len(self.vector) - 1):
@@ -26,7 +24,7 @@ class Route:
 
         self.fitness = fitness
         return fitness
-
+    # mutacia jedinca
     def mutate(self,map):
         r = random.randint(0,len(self.vector)-2)
         tmp = self.vector[r]
@@ -36,7 +34,7 @@ class Route:
 
 
 
-
+# trieda na vygenerovanie a ukladanie miest a ich suradnic
 class Map:
     def __init__(self, sizeX, sizeY, citiesN):
         self.sizeX = sizeX
@@ -48,6 +46,7 @@ class Map:
         for i in range(citiesN):
             self.dist.append(citiesN*[None])
 
+    # nahondne generovanie miest
     def generateRandomCities(self, num):
         for i in range(num):
             x = random.randint(0, self.sizeX)
@@ -58,16 +57,17 @@ class Map:
 
             self.cities.append([x,y])
 
+    # testovacia vzorka miest
     def createTestCities(self): #!20 miest!
         self.cities = [[79, 177], [12, 108], [95, 25],[28, 52], [153, 113],[30, 31], [44, 110], [186, 13], [47, 63], [182, 50], [72, 136],[53, 126], [43, 96], [123, 65],[117, 97],
                       [43, 107],[166, 1], [178, 69],[6, 41], [ 16, 173]]
 
+# vypocet vzdialenosti
 def calcDistance(city1, city2):
     x = math.floor(math.sqrt((city1[0] - city2[0] )**2 + (city1[1] - city2[1])**2))
     return x
 
-
-
+# vygenerovanie nahodnych jedincov
 def generatePermutations(num, citiesN, map):
     routes = []
     s=list(range(citiesN))
@@ -82,10 +82,13 @@ def generatePermutations(num, citiesN, map):
 
     return routes
 
-#metoda vyberu generacii - kombinovana
-def createNewGeneration(map, routes):
+# metoda vyberu generacii - kombinovana
+# do novej generiacie idu najlepsi jedinci z kombinacie deti elitnych jedincov, zmutovanych zlych jedincov a nahodnych novych jedincov
+def createNewGeneration(map, routes, EK_RATE, BP_RATE, NG_RATE):
     routes.sort(key=lambda x: x.fitness)
     newGeneration = []
+
+    # urcuju velkosti jednotlivych skupin
     elitekidsRate = EK_RATE / 10
     badParentsRate = BP_RATE / 10
     newGenesRate = NG_RATE
@@ -107,7 +110,8 @@ def createNewGeneration(map, routes):
     newGeneration.sort(key=lambda x: x.fitness)
     return newGeneration[:len(routes)]
 
-#metoda vyberu generacii len z elitnych
+# metoda vyberu generacii len z elitnych
+# potomkovia vznikaju z najlepsej polovice jedincov
 def createNewGeneration2(map, routes):
     routes.sort(key=lambda x: x.fitness)
     newGeneration = []
@@ -122,7 +126,8 @@ def createNewGeneration2(map, routes):
     return newGeneration
 
 # metoda vyberu generacii - ruleta, kde elitni preziju vyradovanie
-def createNewGeneration3(map, routes):
+# E3_RATE ukazuje velkost elitnej skupiny
+def createNewGeneration3(map, routes, E3_RATE):
 
     routes.sort(key=lambda x: x.fitness)
     newGeneration = []
@@ -158,6 +163,7 @@ def createNewGeneration3(map, routes):
     return newGeneration[:size]
 
 # metoda vyberu generacii - ruleta, kde elitni idu do dalsej generacie
+# E3_RATE ukazuje velkost elitnej skupiny
 def createNewGeneration4(map, routes, E3_RATE):
 
     routes.sort(key=lambda x: x.fitness)
@@ -196,19 +202,22 @@ def createNewGeneration4(map, routes, E3_RATE):
 
     return newGeneration[:size]
 
+# metoda dvojbodoveho krizenia
 def breed2BK(mum, dad):
     r1 = random.randint(0,len(mum.vector)-1)
     r2 = random.randint(0,len(mum.vector)-1)
     i1 = mum.vector.index(r1)
     i2 = mum.vector.index(r2)
+
+    # ulozi vysek z matky
     if i1 < i2:
         kid = mum.vector[i1:i2]
         pos = i2
-
     else:
         kid = mum.vector[i2:i1]
         pos = i1
 
+    # zvysne mesta uklada za vysek
     for d in range(len(dad.vector) - len(kid)):
         while dad.vector[pos] in kid:
             pos = pos + 1 if pos + 1 < len(dad.vector) else 0
@@ -216,16 +225,19 @@ def breed2BK(mum, dad):
 
     return Route(kid)
 
+# metoda dvojbodoveho krizenia verzia 2
 def breed2BKv2(mum, dad):
     r1 = random.randint(0, len(mum.vector) - 1)
     r2 = random.randint(0, len(mum.vector) - 1)
     i1 = mum.vector.index(r1)
     i2 = mum.vector.index(r2)
+    # ulozi vysek z matky
     if i1 < i2:
         kid = mum.vector[i1:i2]
     else:
         kid = mum.vector[i2:i1]
-        
+
+    # zvysne mesta uklada od 0 pozicie
     pos = 0
     for d in range(len(dad.vector) - len(kid)):
         while dad.vector[pos] in kid:
@@ -234,67 +246,73 @@ def breed2BKv2(mum, dad):
 
     return Route(kid)
 
-
+# do Canvasu nakresli mapu a cestu
 def drawMap(map, best,canvas):
     a=2
-    b = 300
+    b = 70
+    c = 400
     for i in best.vector:
-        canvas.create_oval(b+a*map.cities[i][0],b+a*map.cities[i][1],b+a*map.cities[i][0]+4,b+a*map.cities[i][1]+4,fill="red")
+        canvas.create_oval(c+a*map.cities[i][0],b+a*map.cities[i][1],c+a*map.cities[i][0]+4,b+a*map.cities[i][1]+4,fill="red")
         if best.vector.index(i) < len(best.vector)-1:
             next = best.vector[best.vector.index(i)+1]
-            canvas.create_line(b+a*map.cities[i][0],b+a*map.cities[i][1],b+a*map.cities[next][0],b+a*map.cities[next][1])
-            canvas.create_text(b+a*map.cities[i][0],b+a*map.cities[i][1], font=("Purisa", 12), text=best.vector[i])
+            canvas.create_line(c+a*map.cities[i][0],b+a*map.cities[i][1],c+a*map.cities[next][0],b+a*map.cities[next][1])
+            canvas.create_text(c+a*map.cities[i][0],b+a*map.cities[i][1], font=("Purisa", 12), text=best.vector[i])
         else:
-            canvas.create_line(b+a*map.cities[i][0], b+a*map.cities[i][1], b+a*map.cities[best.vector[0]][0], b+a*map.cities[best.vector[0]][1])
+            canvas.create_line(c+a*map.cities[i][0], b+a*map.cities[i][1], c+a*map.cities[best.vector[0]][0], b+a*map.cities[best.vector[0]][1])
 
 
-def main(E3_RATE):
+def main(E3_RATE, CITIES):
+    # inicializacia grafickeho platna na zobrazenie priebehu algoritmu a nakreslenie mapy
     root = Tk()
     root.geometry("1500x700")
     canvas = Canvas(root, width = 1900, height = MAP_SIZE[1]*4)
     canvas.pack()
     y = 0
+
+    # vygenerovanie miest a prvej generacie jedincov
     map = Map(MAP_SIZE[0], MAP_SIZE[1], CITIES)
-    map.createTestCities()
-
+    # map.createTestCities()
     routes = generatePermutations(50, CITIES, map)
-
     best = routes[0]
 
-    remainCounter = 400
+    # zivotnost funkcie
+    lifespan = 200
     generationCounter = 0
-    while remainCounter > 0:
+
+    while lifespan > 0:
         generationCounter+=1
-        x = min(routes, key=lambda a: a.fitness)
-        # for a in routes:
-        #     x+=a.fitness
-        # x = int(x/len(routes))
-        canvas.create_oval(y,x.fitness/4,y+2,x.fitness/4+2)
+
+        # ak pouzivam createNewGeneration4, netreba hladat min, lebo najlepsi jedinec je na 0 indexe
+        x = routes[0]
+        # x = min(routes, key=lambda a: a.fitness)
+
+        # nakresli bod v grafe
+        canvas.create_oval(y, 700 - x.fitness/4,y+2, 700 - x.fitness/4+2)
         y+=1
 
+        # dynamicky meni pocet elitnych jedincov v generacii a zaroven pocet mutacii
         if generationCounter % 100 == 0:
             E3_RATE+=1
 
-        remainCounter-=1
+        # ak najde nove najlepsie riesenie, obnovi zivotnost
+        lifespan-=1
         if best.fitness > x.fitness:
             best=x
-            remainCounter = 500
+            lifespan = 400
 
+        # vytvorenie novej generacie
         routes = createNewGeneration4(map, routes, E3_RATE)
-        # routes = createNewGeneration(map, routes)
 
     drawMap(map,best,canvas)
     print(best.fitness, best.vector)
-    print(E3_RATE)
     root.mainloop()
 
 
 if __name__ == '__main__':
-    # EK_RATE = int(sys.argv[1])
-    # BP_RATE = int(sys.argv[2])
-    # NG_RATE = int(sys.argv[3])
-    EK_RATE = 2
-    BP_RATE = 2.3
+    EK_RATE = 20
+    BP_RATE = 23
     NG_RATE = 7
     E3_RATE = 7
-    main(E3_RATE)
+    print("Zadaj pocet miest")
+    CITIES = int(input())
+    main(E3_RATE, CITIES)
